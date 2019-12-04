@@ -14,7 +14,7 @@ import java.util.*;
 
 /**
  * SnugDoclet的默认实现
- * 默认是仅仅解析Dubbo接口，如果后面要解析Controller，再写一个SnugDoclet的实现类即可。
+ * 默认是仅仅解析Dubbo接口，如果后面要解析Controller，再写一个SnugDoclet的实现类即可。（抽象工厂模式）
  * @Author Abner
  */
 @Slf4j
@@ -109,9 +109,12 @@ public class DefaultSnugDocletImpl extends SnugDoclet {
                     MethodStorer methodStorer = new MethodStorer();
                     methodStorer.setName(methodDoc.name());
                     methodStorer.setClassDoc(classDoc); //实现类的classdoc
-                    //这个methodDoc我应该保存实现类的还是接口的呢？
                     //还是解析接口上的方法吧，然后通过classDoc找到实现类上的东西。
                     methodStorer.setMethodDoc(methodDoc);
+                    /**
+                     * 获取注释考虑情况：先找接口上的方法的注释，如果没有，到实现类上去找。
+                     *                目前只实现了找接口上的注释。
+                     */
                     methodStorer.setComment(methodDoc.commentText());
                     Map<String,String> methodTags = new HashMap<String, String>();
                     for(Tag tag : methodDoc.tags()){
@@ -167,13 +170,13 @@ public class DefaultSnugDocletImpl extends SnugDoclet {
         if(SnugUtil.isEntity(type)){
             ClassDoc classDoc = type.asClassDoc();
             fieldDocStorer.setEntity(true);
-            //TODO 如果是实体数组呢
+            //如果是实体数组呢
             if(SnugUtil.isArray(type)){
                 fieldDocStorer.setArray(true);
             }
             //如果参数是实体，获取实体类上的注释。
             fieldDocStorer.setComment(classDoc.commentText());
-            //TODO 处理自定义泛型类
+            //处理自定义泛型类
             HashMap<String,Type> genericTypeMap = null;   //前面的参数表示泛型，后面的参数表示实际类型
             try{
                 Type[] actualTypes = type.asParameterizedType().typeArguments();
@@ -260,6 +263,18 @@ public class DefaultSnugDocletImpl extends SnugDoclet {
         return fieldDocStorer;
     }
 
+    public FieldDocStorer handleFieldDocImprove(FieldDoc fieldDoc,Set<String> typeSet){
+        return handleFieldDocImprove(fieldDoc,typeSet,null);
+    }
+
+    /**
+     *  处理fieldDoc进阶版，对循环依赖问题进行处理。
+     *  利用typeSet处理。类似于方法调用的原理。
+     * @param fieldDoc
+     * @param typeSet
+     * @param actualType
+     * @return
+     */
     public FieldDocStorer handleFieldDocImprove(FieldDoc fieldDoc,Set<String> typeSet,Type actualType){
         if(fieldDoc==null){
             return null;
@@ -291,7 +306,7 @@ public class DefaultSnugDocletImpl extends SnugDoclet {
             List<FieldDocStorer> list = new ArrayList<>();
             ClassDoc classDoc = type.asClassDoc();
             for(FieldDoc fieldDoc1 : classDoc.fields(false)){
-                list.add(handleFieldDocImprove(fieldDoc1,new_typeSet));
+                list.add(handleFieldDocImprove(fieldDoc1,new_typeSet,type));
             }
             fieldDocStorer.setTypeArgs(list);
 
@@ -317,7 +332,7 @@ public class DefaultSnugDocletImpl extends SnugDoclet {
                         ClassDoc classDoc = collectionTypes[0].asClassDoc();
                         for(FieldDoc fieldDoc1 : classDoc.fields(false)){
                             //如果entity中的一个字段又是collection怎么办？递归处理
-                            list.add(handleFieldDocImprove(fieldDoc1,new_typeSet));
+                            list.add(handleFieldDocImprove(fieldDoc1,new_typeSet,type));
                         }
                         fieldDocStorer.setTypeArgs(list);
                     }
@@ -337,169 +352,6 @@ public class DefaultSnugDocletImpl extends SnugDoclet {
                             fieldDocStorer.setTypeArgs(list);
                         }
                     }
-                }
-            }else{
-                fieldDocStorer.setBasic(true);
-            }
-        }
-        return fieldDocStorer;
-    }
-
-    /**
-     *  处理fieldDoc进阶版，对循环依赖问题进行处理。
-     *  利用typeSet处理。类似于方法调用的原理。
-     * @param fieldDoc
-     * @param typeSet
-     * @return
-     */
-    public FieldDocStorer handleFieldDocImprove(FieldDoc fieldDoc,Set<String> typeSet){
-        return handleFieldDocImprove(fieldDoc,typeSet,null);
-    }
-//    public FieldDocStorer handleFieldDocImprove(FieldDoc fieldDoc,Set<String> typeSet){
-//        if(fieldDoc==null){
-//            return null;
-//        }
-//        FieldDocStorer fieldDocStorer = new FieldDocStorer();
-//        fieldDocStorer.setName(fieldDoc.name());
-//        fieldDocStorer.setType(fieldDoc.type().toString());
-//        fieldDocStorer.setComment(fieldDoc.commentText());
-//
-//        if(typeSet.contains(fieldDoc.type().toString())){
-//            return fieldDocStorer;
-//        }else{
-//            typeSet.add(fieldDoc.type().toString());
-//        }
-//        Set<String> new_typeSet = new HashSet<String>();
-//        for(String str : typeSet){
-//            new_typeSet.add(str);
-//        }
-//
-//        if(SnugUtil.isEntity(fieldDoc.type())){
-//            fieldDocStorer.setEntity(true);
-//            if(fieldDocStorer.isArray()){
-//                fieldDocStorer.setArray(true);
-//            }
-//            List<FieldDocStorer> list = new ArrayList<>();
-//            ClassDoc classDoc = fieldDoc.type().asClassDoc();
-//            for(FieldDoc fieldDoc1 : classDoc.fields(false)){
-//                list.add(handleFieldDocImprove(fieldDoc1,new_typeSet));
-//            }
-//            fieldDocStorer.setTypeArgs(list);
-//
-//            //将fieldDocStorer添加到model中,去掉数组类型。
-//            String fieldDocStorerType = fieldDocStorer.getType();
-//            if(fieldDocStorerType.contains("[]")){
-//                fieldDocStorerType = fieldDocStorerType.replace("[","").replace("]","");
-//            }
-//            if(!snugDocContext.models.containsKey(fieldDocStorerType)){
-//                snugDocContext.models.put(fieldDocStorerType,fieldDocStorer);
-//            }
-//
-//        }else{
-//            if(SnugUtil.isArray(fieldDoc.type())){
-//                fieldDocStorer.setArray(true);
-//            }else if(SnugUtil.isCollection(fieldDoc.type())){
-//                fieldDocStorer.setCollection(true);
-//                Type[] collectionTypes = fieldDoc.type().asParameterizedType().typeArguments();
-//                if(collectionTypes!=null && collectionTypes.length>0){
-//                    if(SnugUtil.isEntity(collectionTypes[0])){
-//                        //处理Collection中的泛型
-//                        List<FieldDocStorer> list = new ArrayList<>();
-//                        ClassDoc classDoc = collectionTypes[0].asClassDoc();
-//                        for(FieldDoc fieldDoc1 : classDoc.fields(false)){
-//                            //如果entity中的一个字段又是collection怎么办？递归处理
-//                            list.add(handleFieldDocImprove(fieldDoc1,new_typeSet));
-//                        }
-//                        fieldDocStorer.setTypeArgs(list);
-//                    }
-//                }
-//            }else if(SnugUtil.isMap(fieldDoc.type())){
-//                fieldDocStorer.setMap(true);
-//                Type[] mapTypes = fieldDoc.type().asParameterizedType().typeArguments();
-//                if(mapTypes!=null && mapTypes.length>0){
-//                    for(Type type : mapTypes){
-//                        if(SnugUtil.isEntity(type)){
-//                            //处理Map中的泛型
-//                            List<FieldDocStorer> list = new ArrayList<>();
-//                            ClassDoc classDoc = type.asClassDoc();
-//                            for(FieldDoc fieldDoc1 : classDoc.fields(false)){
-//                                list.add(handleFieldDocImprove(fieldDoc1,new_typeSet));
-//                            }
-//                            fieldDocStorer.setTypeArgs(list);
-//                        }
-//                    }
-//                }
-//            }else{
-//                fieldDocStorer.setBasic(true);
-//            }
-//        }
-//        return fieldDocStorer;
-//    }
-
-    /**
-     * 对fieldDoc进行处理，未处理循环依赖的版本。
-     * @param fieldDoc
-     * @return
-     */
-    public FieldDocStorer handleFieldDoc(FieldDoc fieldDoc){
-        if(fieldDoc==null){
-            return null;
-        }
-        FieldDocStorer fieldDocStorer = new FieldDocStorer();
-        fieldDocStorer.setName(fieldDoc.name());
-        fieldDocStorer.setType(fieldDoc.type().toString());
-        fieldDocStorer.setComment(fieldDoc.commentText());
-        if(SnugUtil.isEntity(fieldDoc.type())){
-            fieldDocStorer.setEntity(true);
-            if(fieldDocStorer.isArray()){
-                fieldDocStorer.setArray(true);
-            }
-            List<FieldDocStorer> list = new ArrayList<>();
-            ClassDoc classDoc = fieldDoc.type().asClassDoc();
-            for(FieldDoc fieldDoc1 : classDoc.fields(false)){
-                list.add(handleFieldDoc(fieldDoc1));
-            }
-            fieldDocStorer.setTypeArgs(list);
-
-        }else{
-            if(SnugUtil.isArray(fieldDoc.type())){
-                fieldDocStorer.setArray(true);
-            }else if(SnugUtil.isCollection(fieldDoc.type())){
-                fieldDocStorer.setCollection(true);
-                Type[] collectionTypes = fieldDoc.type().asParameterizedType().typeArguments();
-                if(collectionTypes!=null){
-                    if(SnugUtil.isEntity(collectionTypes[0])){
-                        //处理Collection中的泛型
-                        List<FieldDocStorer> list = new ArrayList<>();
-                        ClassDoc classDoc = collectionTypes[0].asClassDoc();
-                        for(FieldDoc fieldDoc1 : classDoc.fields(false)){
-                            //如果entity中的一个字段又是collection怎么办？
-                            list.add(handleFieldDoc(fieldDoc1));
-                        }
-                        fieldDocStorer.setTypeArgs(list);
-                    }else{
-                        //如果泛型不是实体怎么处理
-
-                    }
-                }
-            }else if(SnugUtil.isMap(fieldDoc.type())){
-                fieldDocStorer.setMap(true);
-                Type[] mapTypes = fieldDoc.type().asParameterizedType().typeArguments();
-                if(mapTypes!=null){
-                    for(Type type : mapTypes){
-                        if(SnugUtil.isEntity(type)){
-                            //处理Map中的泛型
-                            List<FieldDocStorer> list = new ArrayList<>();
-                            ClassDoc classDoc = type.asClassDoc();
-                            for(FieldDoc fieldDoc1 : classDoc.fields(false)){
-                                list.add(handleFieldDoc(fieldDoc1));
-                            }
-                            fieldDocStorer.setTypeArgs(list);
-                        }
-                    }
-                }else{
-                    //如果泛型不是实体怎么处理
-
                 }
             }else{
                 fieldDocStorer.setBasic(true);

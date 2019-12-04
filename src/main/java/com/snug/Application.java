@@ -14,6 +14,7 @@ import java.io.*;
 public class Application {
 
     public static void main(String[] args) {
+        //本来以为要用这个设置logback的路径，好像不用也行。
         //System.setProperty("logback.configurationFile",System.getProperty("user.dir")+"/src/main/resources.logback.xml");
         String rootPath =
                 //"/Users/abner/abner/idea_workspace/smalldoc_test";
@@ -49,8 +50,6 @@ public class Application {
             e.printStackTrace();
         }
 
-        //获取项目中的class路径，包括所依赖的jar包的路径
-        //System.out.println(System.getProperty("java.class.path"));
     }
 
 }

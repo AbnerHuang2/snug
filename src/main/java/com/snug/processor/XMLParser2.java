@@ -9,6 +9,8 @@ import org.dom4j.io.XMLWriter;
 import java.io.*;
 
 /**
+ * 这个类本来是打算用来解析pom文件，通过更改相关配置生成外部依赖jar包的lib文件夹。
+ * 但是通过maven打包和解压的方式能够获取到，就不用解析了。所以这个类暂时没有什么用。
  * @program: demo
  * @author: Abner
  * @create: 2019-12-02 19:53
