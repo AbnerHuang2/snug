@@ -40,7 +40,7 @@
 
     <properties>
         <lombok.version>1.18.10</lombok.version>
-        <fastjson.version>1.2.41</fastjson.version>
+        <fastjson.version>1.2.83</fastjson.version>
         <!-- 指定maven编译使用的jdk版本 好神奇：在这里指定居然有用了，我在idea上改了半天，一直没用，动不动就给改回去了 -->
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
